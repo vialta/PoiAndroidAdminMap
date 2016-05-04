@@ -1,0 +1,36 @@
+<FrameLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    >
+
+    <fragment android:id="@+id/map"
+              android:name="qualteh.com.androidadminmap.CustomMapFragment"
+
+              xmlns:map="http://schemas.android.com/apk/res-auto"
+              xmlns:tools="http://schemas.android.com/tools"
+              android:layout_width="match_parent"
+              android:layout_height="match_parent"
+              tools:context="qualteh.com.androidadminmap.POIActivity"/>
+
+    <ImageView
+        android:id="@+id/centerMarker"
+
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:src="@drawable/map_pin_32_44"
+        android:layout_gravity="center"/>
+
+    <Switch
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:id="@+id/switch_map_type"/>
+
+
+    <TextView
+        android:id="@+id/reverse_geo_text"
+        android:layout_gravity="bottom|center_horizontal"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"/>
+
+</FrameLayout>

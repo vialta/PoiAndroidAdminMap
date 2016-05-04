@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">AndroidAdminMap</string>
+    <string name="title_activity_poi">Map</string>
+</resources>
