@@ -7,11 +7,12 @@ import android.util.AttributeSet;
 import android.util.Log;
 import android.view.MotionEvent;
 import android.widget.FrameLayout;
+import android.widget.RelativeLayout;
 
 /**
  * Created by Virgil Tanase on 28.04.2016.
  */
-public class CustomFrameLayout extends FrameLayout {
+public class CustomFrameLayout extends RelativeLayout {
 
     private long lastTouched = 0;
     private float mapX;

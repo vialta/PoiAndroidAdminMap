@@ -1,4 +1,4 @@
-<FrameLayout
+<RelativeLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -13,24 +13,81 @@
               android:layout_height="match_parent"
               tools:context="qualteh.com.androidadminmap.POIActivity"/>
 
+
+<LinearLayout
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:background="#eeeeee">
+
+    <Switch
+        android:textOn="Normal"
+        android:textOff="Hybrid"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:id="@+id/switch_map_type"
+        />
+
+    <EditText
+        android:id="@+id/edit_text_location_search"
+        android:gravity="center"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"/>
+
+    <Button
+        android:id="@+id/button_map_search"
+        android:text="S"
+
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"/>
+
+</LinearLayout>
+
     <ImageView
         android:id="@+id/centerMarker"
 
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:src="@drawable/map_pin_32_44"
-        android:layout_gravity="center"/>
-
-    <Switch
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:id="@+id/switch_map_type"/>
-
+        android:layout_gravity="center"
+        android:layout_above="@+id/textView"
+        android:layout_centerInParent="true"/>
 
     <TextView
-        android:id="@+id/reverse_geo_text"
-        android:layout_gravity="bottom|center_horizontal"
         android:layout_width="wrap_content"
-        android:layout_height="wrap_content"/>
+        android:layout_height="wrap_content"
+        android:textAppearance="?android:attr/textAppearanceSmall"
+        android:id="@+id/textView"
+        android:layout_alignWithParentIfMissing="false"
+        android:layout_centerInParent="true"
+        />
 
-</FrameLayout>
+    <Button
+        android:id="@+id/button_save_poi_position"
+        android:text="Change"
+        android:visibility="invisible"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:layout_alignParentRight="true"
+        android:layout_alignParentEnd="true"/>
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="#eeeeee"
+        android:layout_alignParentBottom="true"
+        android:layout_alignParentLeft="true"
+        android:layout_alignParentStart="true">
+
+        <TextView
+            android:id="@+id/reverse_geo_text"
+            android:layout_gravity="bottom|center_horizontal"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentTop="false"
+            android:layout_centerHorizontal="true"
+            android:layout_alignParentBottom="true"/>
+
+    </FrameLayout>
+
+</RelativeLayout>

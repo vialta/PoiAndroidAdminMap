@@ -4,11 +4,15 @@ import android.app.FragmentManager;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.support.v7.app.AppCompatDialogFragment;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Switch;
+
+import com.google.android.gms.maps.model.Marker;
 
 import qualteh.com.androidadminmap.R;
 
@@ -21,10 +25,45 @@ public class EditPOIDialog extends AppCompatDialogFragment implements View.OnCli
     private String streetNumber;
     private String stairway;
     private boolean isPOI;
+    private EditText nameEditText ;
+    private EditText numberEditText ;
+    private EditText stairwayEditText ;
+    private Switch isPoiSwitch ;
+
+    private EditPoiDialogListener editPoiDialogListener;
+
+    public void setEditPoiDialogListener ( EditPoiDialogListener editPoiDialogListener ) {
+        this.editPoiDialogListener = editPoiDialogListener;
+    }
+
+    public interface EditPoiDialogListener{
+        void onSaveEdit();
+        void onChangePos();
+    }
 
     @Override
     public void onClick ( View v ) {
+        switch ( v.getId() ){
+            case R.id.button_edit_poi_save:
+                streetName= String.valueOf( nameEditText.getText() );
+                streetNumber= String.valueOf( numberEditText.getText() );
+                stairway= String.valueOf( stairwayEditText.getText() );
+                isPOI = isPoiSwitch.isChecked();
+                editPoiDialogListener.onSaveEdit();
+                this.dismiss();
+                break;
+            case R.id.button_edit_poi_change:
+                editPoiDialogListener.onChangePos();
+                this.dismiss();
+                break;
+            case R.id.button_create_poi:
 
+
+                this.dismiss();
+                break;
+            default:
+                break;
+        }
     }
 
     public View onCreateView ( LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState ) {
@@ -35,13 +74,20 @@ public class EditPOIDialog extends AppCompatDialogFragment implements View.OnCli
     @Override
     public void onViewCreated ( View view, @Nullable Bundle savedInstanceState ) {
         super.onViewCreated( view, savedInstanceState );
-        EditText nameEditText = ( EditText ) view.findViewById( R.id.edit_text_dialog_edit_name );
-        EditText numberEditText = ( EditText ) view.findViewById( R.id.edit_text_dialog_edit_number );
-        EditText stairwayEditText = ( EditText ) view.findViewById( R.id.edit_text_dialog_edit_stairway );
-        Switch isPoiSwitch = (Switch) view.findViewById( R.id.switch_is_poi );
+        nameEditText = ( EditText ) view.findViewById( R.id.edit_text_dialog_edit_name );
+        numberEditText = ( EditText ) view.findViewById( R.id.edit_text_dialog_edit_number );
+        stairwayEditText = ( EditText ) view.findViewById( R.id.edit_text_dialog_edit_stairway );
+        isPoiSwitch = (Switch) view.findViewById( R.id.switch_is_poi );
         nameEditText.setText( streetName );
         numberEditText.setText( streetNumber );
         stairwayEditText.setText( stairway );
+
+        Button changeButton = (Button) view.findViewById( R.id.button_edit_poi_change );
+        Button saveButton = (Button ) view.findViewById( R.id.button_edit_poi_save );
+
+        changeButton.setOnClickListener( this );
+        saveButton.setOnClickListener( this );
+
     }
 
     public String getStreetName () {

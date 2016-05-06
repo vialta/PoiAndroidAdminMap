@@ -16,7 +16,10 @@ import android.support.v4.app.FragmentManager;
 import android.support.v4.content.ContextCompat;
 import android.support.v4.util.ArrayMap;
 import android.util.Log;
+import android.view.View;
+import android.widget.Button;
 import android.widget.CompoundButton;
+import android.widget.ImageView;
 import android.widget.Switch;
 import android.widget.TextView;
 
@@ -34,6 +37,7 @@ import java.util.List;
 import java.util.Locale;
 
 import qualteh.com.androidadminmap.API.IAdminMap;
+import qualteh.com.androidadminmap.Dialogs.CreatePOIDialog;
 import qualteh.com.androidadminmap.Dialogs.EditPOIDialog;
 import qualteh.com.androidadminmap.Dialogs.POIDialog;
 import qualteh.com.androidadminmap.Model.Address;
@@ -58,9 +62,12 @@ public class POIActivity extends FragmentActivity implements OnMapReadyCallback,
     LocationManager locationManager;
     LatLng myLocation;
     String provider;
+    private Marker editingMarker;
+    private Button changePositionButton;
 
     public static int MY_PERMISSIONS_REQUEST_COARSE_LOCATION;
     public static int MY_PERMISSIONS_REQUEST_FINE_LOCATION;
+    private boolean isChangingPosition;
 
 
     @Override
@@ -80,11 +87,104 @@ public class POIActivity extends FragmentActivity implements OnMapReadyCallback,
         customFrameLayout.setOnCatchTouchFrameLayoutListener( new CustomFrameLayout.CatchTouchFrameLayoutListener() {
             @Override
             public void onTouchUp () {
-                serverCall( mMap.getCameraPosition().target );
+                if(!isChangingPosition) {
+                    serverCall( mMap.getCameraPosition().target );
+                }
             }
 
             @Override
             public void onTouchDown () {
+            }
+        } );
+
+        changePositionButton = ( Button ) findViewById( R.id.button_save_poi_position );
+        changePositionButton.setOnClickListener( new View.OnClickListener() {
+            @Override
+            public void onClick ( View v ) {
+                editingMarker.setPosition( mMap.getCameraPosition().target );
+                changePositionButton.setVisibility( View.INVISIBLE );
+                isChangingPosition=false;
+            }
+        } );
+
+        ImageView centralImage = ( ImageView ) findViewById( R.id.centerMarker );
+        centralImage.setOnClickListener( new View.OnClickListener() {
+            @Override
+            public void onClick ( View v ) {
+                FragmentManager fm = getSupportFragmentManager();
+                final CreatePOIDialog createPOIDialog = new CreatePOIDialog();
+                Geocoder geocoder = new Geocoder( getApplicationContext(), Locale.getDefault() );
+                try {
+                    List<android.location.Address> addressList = geocoder.getFromLocation( mMap.getCameraPosition().target.latitude, mMap.getCameraPosition().target.longitude,1 );
+                    if(addressList!=null && addressList.size()>0){
+                        createPOIDialog.setAddressFromGeocoder( addressList.get( 0 ).getAddressLine( 0 ) );
+                    }
+                } catch ( IOException e ) {
+                    e.printStackTrace();
+                }
+                createPOIDialog.setCreatePOIDialogListener( new CreatePOIDialog.CreatePOIDialogListener() {
+                    @Override
+                    public void onCreate () {
+                        Marker tmpMarker;
+                        if(createPOIDialog.getIsPoiSwitch().isChecked()){
+                            tmpMarker =  mMap.addMarker( new MarkerOptions().icon( BitmapDescriptorFactory.fromResource( R.drawable.map_circle_blue50 ) ).position(new LatLng( mMap.getCameraPosition().target.latitude,mMap.getCameraPosition().target.longitude ) ).title( createPOIDialog.getAddress() ) );
+                            poiMarkerList.add( tmpMarker );
+                            Poi newPoi = new Poi();
+                            newPoi.setLat( mMap.getCameraPosition().target.latitude );
+                            newPoi.setLng( mMap.getCameraPosition().target.longitude );
+                            newPoi.setDist( 0.0 );
+                            newPoi.setName( createPOIDialog.getAddress() );
+                            mAdminMapModel.getData().getPois().add( newPoi );
+
+                            //TODO POI CREATE CALL
+                            String message = JsonBuilder.buildJson(
+                                    "buildType",
+                                    "settlement",
+                                    "supSettlement",
+                                    "county",
+                                    0.00,
+                                    0.00,
+                                    "concatenated",
+                                    "newConcatenated",
+                                    "newWno",
+                                    false ,
+                                    "wno",
+                                    false);
+
+                        }
+                        else{
+                            tmpMarker = mMap.addMarker( new MarkerOptions().icon( BitmapDescriptorFactory.fromResource( R.drawable.poi_50 ) ).position(new LatLng( mMap.getCameraPosition().target.latitude,mMap.getCameraPosition().target.longitude ) ).title( createPOIDialog.getAddress()+" "+createPOIDialog.getNumber() ) );
+                            addressMarkerList.add( tmpMarker );
+
+                            Address newAddress = new Address();
+                            newAddress.setLat( mMap.getCameraPosition().target.latitude );
+                            newAddress.setLng( mMap.getCameraPosition().target.longitude );
+                            newAddress.setDist( 0.0 );
+                            newAddress.setName( createPOIDialog.getAddress() );
+                            newAddress.setNo( createPOIDialog.getNumber() );
+                            newAddress.setSc( String.valueOf( createPOIDialog.getStairwayEditText().getText() ) );
+                            mAdminMapModel.getData().getAddresses().add( newAddress );
+
+                            //TODO ADDRESS CREATE CALL
+                            String message = JsonBuilder.buildJson(
+                                    "buildType",
+                                    "settlement",
+                                    "supSettlement",
+                                    "county",
+                                    0.00,
+                                    0.00,
+                                    "concatenated",
+                                    "newConcatenated",
+                                    "newWno",
+                                    false ,
+                                    "wno",
+                                    false);
+
+                        }
+
+                    }
+                } );
+                createPOIDialog.show( fm,"" );
             }
         } );
 
@@ -145,10 +245,41 @@ public class POIActivity extends FragmentActivity implements OnMapReadyCallback,
                     @Override
                     public void onEditButtonClicked () {
                         int markerIndex;
+                        FragmentManager fm = getSupportFragmentManager();
+                        EditPOIDialog editPOIDialog = new EditPOIDialog();
+
+                        editPOIDialog.setEditPoiDialogListener( new EditPOIDialog.EditPoiDialogListener() {
+                            @Override
+                            public void onSaveEdit () {
+
+                                //TODO EDIT STUFF
+                                String message = JsonBuilder.buildJson(
+                                        "buildType",
+                                        "settlement",
+                                        "supSettlement",
+                                        "county",
+                                        0.00,
+                                        0.00,
+                                        "concatenated",
+                                        "newConcatenated",
+                                        "newWno",
+                                        false ,
+                                        "wno",
+                                        false);
+
+                            }
+
+                            @Override
+                            public void onChangePos () {
+                                editingMarker=marker;
+                                isChangingPosition=true;
+                                changePositionButton.setVisibility( View.VISIBLE );
+                            }
+                        } );
+
                         if(addressMarkerList.contains( marker )){
                             markerIndex = addressMarkerList.indexOf( marker );
-                            FragmentManager fm = getSupportFragmentManager();
-                            EditPOIDialog editPOIDialog = new EditPOIDialog();
+
                             editPOIDialog.setStreetName( mAdminMapModel.getData().getAddresses().get( markerIndex ).getName() );
                             editPOIDialog.setStreetNumber( mAdminMapModel.getData().getAddresses().get( markerIndex ).getNo() );
                             editPOIDialog.setStairway( mAdminMapModel.getData().getAddresses().get( markerIndex ).getSc() );
@@ -157,8 +288,7 @@ public class POIActivity extends FragmentActivity implements OnMapReadyCallback,
                         }
                         else{
                             markerIndex = poiMarkerList.indexOf( marker );
-                            FragmentManager fm = getSupportFragmentManager();
-                            EditPOIDialog editPOIDialog = new EditPOIDialog();
+
                             editPOIDialog.setStreetName( mAdminMapModel.getData().getPois().get( markerIndex ).getName() );
                             editPOIDialog.setPOI( true );
                             editPOIDialog.show( fm, "" );
@@ -170,12 +300,44 @@ public class POIActivity extends FragmentActivity implements OnMapReadyCallback,
                             int markerIndex = addressMarkerList.indexOf( marker );
                             mAdminMapModel.getData().getAddresses().remove( markerIndex );
                             addressMarkerList.remove( marker );
+
+                            //TODO CALL DELETION
+                            String message = JsonBuilder.buildJson(
+                                    "buildType",
+                                    "settlement",
+                                    "supSettlement",
+                                    "county",
+                                    0.00,
+                                    0.00,
+                                    "concatenated",
+                                    "newConcatenated",
+                                    "newWno",
+                                    false ,
+                                    "wno",
+                                    false);
+
                             marker.remove();
                         }
                         else{
                             int markerIndex = poiMarkerList.indexOf( marker );
                             mAdminMapModel.getData().getPois().remove( markerIndex );
                             poiMarkerList.remove( marker );
+
+                            //TODO CALL DELETION
+                            String message = JsonBuilder.buildJson(
+                                    "buildType",
+                                    "settlement",
+                                    "supSettlement",
+                                    "county",
+                                    0.00,
+                                    0.00,
+                                    "concatenated",
+                                    "newConcatenated",
+                                    "newWno",
+                                    false ,
+                                    "wno",
+                                    false);
+
                             marker.remove();
                         }
                     }
@@ -193,7 +355,6 @@ public class POIActivity extends FragmentActivity implements OnMapReadyCallback,
         }
         for(final Poi p : mAdminMapModel.getData().getPois()) {
             Marker tmpMarker =  mMap.addMarker( new MarkerOptions().icon( BitmapDescriptorFactory.fromResource( R.drawable.map_circle_blue50 ) ).position(new LatLng( p.getLat(),p.getLng() ) ).title( p.getName() ) );
-
             poiMarkerList.add( tmpMarker );
         }
     }
@@ -250,7 +411,6 @@ public class POIActivity extends FragmentActivity implements OnMapReadyCallback,
     @Override
     public void onMapReady ( GoogleMap googleMap ) {
         mMap = googleMap;
-
         mMap.animateCamera( CameraUpdateFactory.newLatLngZoom( myLocation, 17f ) );
         serverCall( myLocation );
 
