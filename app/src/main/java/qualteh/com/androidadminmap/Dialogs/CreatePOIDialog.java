@@ -7,11 +7,15 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.Spinner;
 import android.widget.Switch;
 
-import java.util.Scanner;
+import java.util.ArrayList;
+import java.util.List;
 
 import qualteh.com.androidadminmap.R;
 
@@ -25,15 +29,15 @@ public class CreatePOIDialog extends AppCompatDialogFragment implements View.OnC
     private EditText nameEditText;
     private EditText numberEditText;
     private EditText stairwayEditText;
-    private Switch isPoiSwitch;
+    private Spinner typeSpinner;
     private CreatePOIDialogListener createPoiListener;
 
-    public Switch getIsPoiSwitch () {
-        return isPoiSwitch;
+    public Spinner getTypeSpinner () {
+        return typeSpinner;
     }
 
-    public void setIsPoiSwitch ( Switch isPoiSwitch ) {
-        this.isPoiSwitch = isPoiSwitch;
+    public void setTypeSpinner ( Spinner typeSpinner ) {
+        this.typeSpinner = typeSpinner;
     }
 
     public EditText getStairwayEditText () {
@@ -75,12 +79,58 @@ public class CreatePOIDialog extends AppCompatDialogFragment implements View.OnC
         super.onViewCreated( view, savedInstanceState );
         nameEditText = (EditText) view.findViewById( R.id.edit_text_dialog_create_name );
         numberEditText = (EditText) view.findViewById( R.id.edit_text_dialog_create_number );
+
+
         nameEditText.setText( address );
         numberEditText.setText( number );
-        isPoiSwitch = ( Switch ) view.findViewById( R.id.switch_create_is_poi );
+        typeSpinner = ( Spinner ) view.findViewById( R.id.spinner_is_poi );
         stairwayEditText = (EditText) view.findViewById( R.id.edit_text_dialog_create_stairway );
+
+        int minWidth = ( int ) (getResources().getDisplayMetrics().widthPixels * 0.4);
+        nameEditText.setMinimumWidth( minWidth );
+        numberEditText.setMinimumWidth( minWidth );
+        stairwayEditText.setMinimumWidth( minWidth );
+
         Button createButton = (Button) view.findViewById( R.id.button_create_poi );
         createButton.setOnClickListener( this );
+
+        List<String> spinnerArray = new ArrayList<>(  );
+        spinnerArray.add( "POI" );
+        spinnerArray.add( "Casa" );
+        spinnerArray.add( "Bloc" );
+
+        ArrayAdapter<String> adapter = new ArrayAdapter<String>( this.getContext(),android.R.layout.simple_spinner_item, spinnerArray );
+
+        adapter.setDropDownViewResource( android.R.layout.simple_spinner_dropdown_item );
+        typeSpinner.setAdapter( adapter );
+
+        typeSpinner.setOnItemSelectedListener( new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected ( AdapterView<?> parent, View view, int position, long id ) {
+                switch ( typeSpinner.getSelectedItem().toString() ){
+                    case "POI":
+                        numberEditText.setEnabled( false );
+                        stairwayEditText.setEnabled( false );
+                        break;
+                    case "Casa":
+                        numberEditText.setEnabled( true );
+                        stairwayEditText.setEnabled( false );
+                        break;
+                    case "Bloc":
+                        numberEditText.setEnabled( true );
+                        stairwayEditText.setEnabled( true );
+                        break;
+                    default:
+                        break;
+                }
+            }
+
+            @Override
+            public void onNothingSelected ( AdapterView<?> parent ) {
+
+            }
+        } );
+
     }
 
     public String getAddress () {

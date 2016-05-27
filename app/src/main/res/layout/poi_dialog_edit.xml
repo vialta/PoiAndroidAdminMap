@@ -50,16 +50,14 @@
     <TextView
         android:layout_row="3"
         android:layout_column="0"
-        android:text="Is Poi:"
+        android:text="Type"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"/>
 
-    <Switch
-        android:id="@+id/switch_is_poi"
+    <Spinner
+        android:id="@+id/spinner_is_poi"
         android:layout_row="3"
         android:layout_column="1"
-        android:textOn=" "
-        android:textOff=" "
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"/>
 

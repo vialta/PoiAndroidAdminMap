@@ -1,7 +1,9 @@
 package qualteh.com.androidadminmap;
 
 import android.Manifest;
+import android.app.Activity;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.pm.PackageManager;
 import android.location.Criteria;
 import android.location.Geocoder;
@@ -14,12 +16,17 @@ import android.support.v4.app.FragmentActivity;
 import android.os.Bundle;
 import android.support.v4.app.FragmentManager;
 import android.support.v4.content.ContextCompat;
-import android.support.v4.util.ArrayMap;
+import android.support.v7.app.AlertDialog;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.util.Log;
 import android.view.View;
+import android.widget.AdapterView;
 import android.widget.Button;
 import android.widget.CompoundButton;
+import android.widget.EditText;
 import android.widget.ImageView;
+import android.widget.Spinner;
 import android.widget.Switch;
 import android.widget.TextView;
 
@@ -42,6 +49,7 @@ import qualteh.com.androidadminmap.Dialogs.EditPOIDialog;
 import qualteh.com.androidadminmap.Dialogs.POIDialog;
 import qualteh.com.androidadminmap.Model.Address;
 import qualteh.com.androidadminmap.Model.AdminMapModel;
+import qualteh.com.androidadminmap.Model.JsonModel;
 import qualteh.com.androidadminmap.Model.Poi;
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -54,6 +62,11 @@ public class POIActivity extends FragmentActivity implements OnMapReadyCallback,
 
     private static int TEMP_ID = 3005;
 
+    private Activity thisActivity;
+    private EditText editTextSearch;
+    private Integer THRESHOLD = 2;
+    private DelayAutoCompleteTextView geoAutoComplete;
+    private ImageView geoAutoCompleteClear;
     private CustomFrameLayout customFrameLayout;
     private AdminMapModel mAdminMapModel;
     private GoogleMap mMap;
@@ -64,10 +77,12 @@ public class POIActivity extends FragmentActivity implements OnMapReadyCallback,
     String provider;
     private Marker editingMarker;
     private Button changePositionButton;
+    private GeoSearchResult mSearchResult;
 
     public static int MY_PERMISSIONS_REQUEST_COARSE_LOCATION;
     public static int MY_PERMISSIONS_REQUEST_FINE_LOCATION;
     private boolean isChangingPosition;
+    private EditPOIDialog tmpEditPOIDialog;
 
 
     @Override
@@ -79,6 +94,54 @@ public class POIActivity extends FragmentActivity implements OnMapReadyCallback,
     protected void onCreate ( Bundle savedInstanceState ) {
         super.onCreate( savedInstanceState );
         setContentView( R.layout.activity_poi );
+
+        thisActivity = this;
+
+        geoAutoCompleteClear = (ImageView) findViewById(R.id.geo_autocomplete_clear);
+
+        geoAutoComplete = (DelayAutoCompleteTextView) findViewById(R.id.edit_text_location_search);
+        geoAutoComplete.setThreshold(THRESHOLD);
+        geoAutoComplete.setAdapter(new GeoAutoCompleteAdapter(this)); // 'this' is Activity instance
+
+        geoAutoComplete.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> adapterView, View view, int position, long id) {
+                mSearchResult = (GeoSearchResult) adapterView.getItemAtPosition(position);
+                geoAutoComplete.setText(mSearchResult.getAddress());
+            }
+        });
+
+        geoAutoComplete.addTextChangedListener(new TextWatcher() {
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+
+            }
+
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+            }
+
+            @Override
+            public void afterTextChanged(Editable s) {
+                if(s.length() > 0)
+                {
+                    geoAutoCompleteClear.setVisibility(View.VISIBLE);
+                }
+                else
+                {
+                    geoAutoCompleteClear.setVisibility(View.GONE);
+                }
+            }
+        });
+
+        geoAutoCompleteClear.setOnClickListener(new View.OnClickListener(){
+            @Override
+            public void onClick(View v) {
+                // TODO Auto-generated method stub
+                geoAutoComplete.setText("");
+            }
+        });
 
         addressMarkerList = new ArrayList<>(  );
         poiMarkerList = new ArrayList<>(  );
@@ -104,6 +167,39 @@ public class POIActivity extends FragmentActivity implements OnMapReadyCallback,
                 editingMarker.setPosition( mMap.getCameraPosition().target );
                 changePositionButton.setVisibility( View.INVISIBLE );
                 isChangingPosition=false;
+                FragmentManager fm = getSupportFragmentManager();
+                tmpEditPOIDialog.show( fm, "" );
+            }
+        } );
+
+        Button searchButton = (Button) findViewById( R.id.button_map_search );
+        searchButton.setOnClickListener( new View.OnClickListener() {
+            @Override
+            public void onClick ( View v ) {
+                String address = geoAutoComplete.getText().toString();
+                Geocoder geoCoder = new Geocoder( getApplicationContext(), Locale.getDefault() );
+                if(!address.equals( "" )){
+                    try
+                    {
+                        List<android.location.Address> addresses = geoCoder.getFromLocationName(address, 5);
+                        if (addresses.size() > 0)
+                        {
+                            Double lat = (double) (addresses.get(0).getLatitude());
+                            Double lon = (double) (addresses.get(0).getLongitude());
+
+                            Log.d("lat-long", "" + lat + "......." + lon);
+                            final LatLng searchedPoint = new LatLng(lat, lon);
+                            // Move the camera instantly to hamburg with a zoom of 15.
+
+                            mMap.animateCamera( CameraUpdateFactory.newLatLngZoom( searchedPoint, 17f ) );
+
+                        }
+                    }
+                    catch (IOException e)
+                    {
+                        e.printStackTrace();
+                    }
+                }
             }
         } );
 
@@ -122,66 +218,140 @@ public class POIActivity extends FragmentActivity implements OnMapReadyCallback,
                 } catch ( IOException e ) {
                     e.printStackTrace();
                 }
+
                 createPOIDialog.setCreatePOIDialogListener( new CreatePOIDialog.CreatePOIDialogListener() {
                     @Override
                     public void onCreate () {
-                        Marker tmpMarker;
-                        if(createPOIDialog.getIsPoiSwitch().isChecked()){
-                            tmpMarker =  mMap.addMarker( new MarkerOptions().icon( BitmapDescriptorFactory.fromResource( R.drawable.map_circle_blue50 ) ).position(new LatLng( mMap.getCameraPosition().target.latitude,mMap.getCameraPosition().target.longitude ) ).title( createPOIDialog.getAddress() ) );
-                            poiMarkerList.add( tmpMarker );
-                            Poi newPoi = new Poi();
-                            newPoi.setLat( mMap.getCameraPosition().target.latitude );
-                            newPoi.setLng( mMap.getCameraPosition().target.longitude );
-                            newPoi.setDist( 0.0 );
-                            newPoi.setName( createPOIDialog.getAddress() );
-                            mAdminMapModel.getData().getPois().add( newPoi );
 
-                            //TODO POI CREATE CALL
-                            String message = JsonBuilder.buildJson(
-                                    "buildType",
-                                    "settlement",
-                                    "supSettlement",
-                                    "county",
-                                    0.00,
-                                    0.00,
-                                    "concatenated",
-                                    "newConcatenated",
-                                    "newWno",
-                                    false ,
-                                    "wno",
-                                    false);
+                        AlertDialog newAlertDialog = new AlertDialog.Builder( thisActivity )
+                                .setTitle( "Salveaza" )
+                                .setMessage( "Doriti sa creati adresa?" )
+                                .setPositiveButton( "Da", new DialogInterface.OnClickListener() {
+                                    @Override
+                                    public void onClick ( DialogInterface dialog, int which ) {
+                                        Marker tmpMarker;
+                                        Log.d("Test",createPOIDialog.getTypeSpinner().getSelectedItem().toString());
+                                        switch ( createPOIDialog.getTypeSpinner().getSelectedItem().toString()){
+                                            case "POI":
+                                                tmpMarker =  mMap.addMarker( new MarkerOptions().icon( BitmapDescriptorFactory.fromResource( R.drawable.map_circle_blue50 ) ).position(new LatLng( mMap.getCameraPosition().target.latitude,mMap.getCameraPosition().target.longitude ) ).title( createPOIDialog.getAddress() ) );
+                                                poiMarkerList.add( tmpMarker );
+                                                Poi newPoi = new Poi();
+                                                newPoi.setLat( mMap.getCameraPosition().target.latitude );
+                                                newPoi.setLng( mMap.getCameraPosition().target.longitude );
+                                                newPoi.setDist( 0.0 );
+                                                newPoi.setName( createPOIDialog.getAddress() );
+                                                mAdminMapModel.getData().getPois().add( newPoi );
 
-                        }
-                        else{
-                            tmpMarker = mMap.addMarker( new MarkerOptions().icon( BitmapDescriptorFactory.fromResource( R.drawable.poi_50 ) ).position(new LatLng( mMap.getCameraPosition().target.latitude,mMap.getCameraPosition().target.longitude ) ).title( createPOIDialog.getAddress()+" "+createPOIDialog.getNumber() ) );
-                            addressMarkerList.add( tmpMarker );
+                                                Retrofit retrofit = new Retrofit.Builder()
+                                                        .baseUrl( "https://api.tudo.ro:"+TEMP_ID )
+                                                        .addConverterFactory( GsonConverterFactory.create() )
+                                                        .build();
+                                                IAdminMap api = retrofit.create( IAdminMap.class );
+                                                JsonModel jsonModel = new JsonModel(0, "poi", "Timişoara", "Timişoara", "Timiş", tmpMarker.getPosition().latitude, tmpMarker.getPosition().longitude, newPoi.getName(), 0, "", 0, "", "", ""   );
+                                                Call<JsonModel> createPoiCall = api.createMarker( jsonModel);
+                                                createPoiCall.enqueue( new Callback<JsonModel>() {
+                                                    @Override
+                                                    public void onResponse ( Call<JsonModel> call, Response<JsonModel> response ) {
+                                                        Log.d("Response",response.message()+" "+call.toString());
+                                                    }
 
-                            Address newAddress = new Address();
-                            newAddress.setLat( mMap.getCameraPosition().target.latitude );
-                            newAddress.setLng( mMap.getCameraPosition().target.longitude );
-                            newAddress.setDist( 0.0 );
-                            newAddress.setName( createPOIDialog.getAddress() );
-                            newAddress.setNo( createPOIDialog.getNumber() );
-                            newAddress.setSc( String.valueOf( createPOIDialog.getStairwayEditText().getText() ) );
-                            mAdminMapModel.getData().getAddresses().add( newAddress );
+                                                    @Override
+                                                    public void onFailure ( Call<JsonModel> call, Throwable t ) {
+                                                        Log.d("Failure",call.toString()+" "+t.getMessage());
+                                                    }
+                                                } );
 
-                            //TODO ADDRESS CREATE CALL
-                            String message = JsonBuilder.buildJson(
-                                    "buildType",
-                                    "settlement",
-                                    "supSettlement",
-                                    "county",
-                                    0.00,
-                                    0.00,
-                                    "concatenated",
-                                    "newConcatenated",
-                                    "newWno",
-                                    false ,
-                                    "wno",
-                                    false);
+                                                //TODO REFRESH MAP
+                                                serverCall( mMap.getCameraPosition().target );
+                                                break;
+                                            case "Bloc":
+                                                tmpMarker = mMap.addMarker( new MarkerOptions().icon( BitmapDescriptorFactory.fromResource( R.drawable.poi_50 ) ).position(new LatLng( mMap.getCameraPosition().target.latitude,mMap.getCameraPosition().target.longitude ) ).title( createPOIDialog.getAddress()+" "+createPOIDialog.getNumber() ) );
+                                                addressMarkerList.add( tmpMarker );
 
-                        }
+                                                Address newAddress = new Address();
+                                                newAddress.setLat( mMap.getCameraPosition().target.latitude );
+                                                newAddress.setLng( mMap.getCameraPosition().target.longitude );
+                                                newAddress.setDist( 0.0 );
+                                                newAddress.setName( createPOIDialog.getAddress() );
+                                                newAddress.setNo( createPOIDialog.getNumber() );
+                                                newAddress.setSc( String.valueOf( createPOIDialog.getStairwayEditText().getText() ) );
+                                                mAdminMapModel.getData().getAddresses().add( newAddress );
 
+                                                //TODO ADDRESS CREATE CALL
+
+                                                retrofit = new Retrofit.Builder()
+                                                        .baseUrl( "https://api.tudo.ro:"+TEMP_ID )
+                                                        .addConverterFactory( GsonConverterFactory.create() )
+                                                        .build();
+                                                api = retrofit.create( IAdminMap.class );
+                                                jsonModel = new JsonModel(0, "scara", "Timişoara", "Timişoara", "Timiş", tmpMarker.getPosition().latitude, tmpMarker.getPosition().longitude, newAddress.getName(), 0, "", 0, newAddress.getNo(), newAddress.getNo(), ""   );
+                                                createPoiCall = api.createMarker( jsonModel);
+                                                createPoiCall.enqueue( new Callback<JsonModel>() {
+                                                    @Override
+                                                    public void onResponse ( Call<JsonModel> call, Response<JsonModel> response ) {
+                                                        Log.d("Response",response.message()+" "+call.toString());
+                                                    }
+
+                                                    @Override
+                                                    public void onFailure ( Call<JsonModel> call, Throwable t ) {
+                                                        Log.d("Failure",call.toString()+" "+t.getMessage());
+                                                    }
+                                                } );
+
+                                                //TODO REFRESH MAP
+                                                serverCall( mMap.getCameraPosition().target );
+                                                break;
+                                            case "Casa":
+                                                tmpMarker = mMap.addMarker( new MarkerOptions().icon( BitmapDescriptorFactory.fromResource( R.drawable.poi_50 ) ).position(new LatLng( mMap.getCameraPosition().target.latitude,mMap.getCameraPosition().target.longitude ) ).title( createPOIDialog.getAddress()+" "+createPOIDialog.getNumber() ) );
+                                                addressMarkerList.add( tmpMarker );
+
+                                                newAddress = new Address();
+                                                newAddress.setLat( mMap.getCameraPosition().target.latitude );
+                                                newAddress.setLng( mMap.getCameraPosition().target.longitude );
+                                                newAddress.setDist( 0.0 );
+                                                newAddress.setName( createPOIDialog.getAddress() );
+                                                newAddress.setNo( createPOIDialog.getNumber() );
+                                                newAddress.setSc( String.valueOf( createPOIDialog.getStairwayEditText().getText() ) );
+                                                mAdminMapModel.getData().getAddresses().add( newAddress );
+
+                                                //TODO ADDRESS CREATE CALL
+
+                                                retrofit = new Retrofit.Builder()
+                                                        .baseUrl( "https://api.tudo.ro:"+TEMP_ID )
+                                                        .addConverterFactory( GsonConverterFactory.create() )
+                                                        .build();
+                                                api = retrofit.create( IAdminMap.class );
+                                                jsonModel = new JsonModel(0, "casa", "Timişoara", "Timişoara", "Timiş", tmpMarker.getPosition().latitude, tmpMarker.getPosition().longitude, newAddress.getName(), 0, "", 0, newAddress.getNo(), newAddress.getNo(), newAddress.getSc()   );
+                                                createPoiCall = api.createMarker( jsonModel);
+                                                createPoiCall.enqueue( new Callback<JsonModel>() {
+                                                    @Override
+                                                    public void onResponse ( Call<JsonModel> call, Response<JsonModel> response ) {
+                                                        Log.d("Response",response.message()+" "+call.toString());
+                                                    }
+
+                                                    @Override
+                                                    public void onFailure ( Call<JsonModel> call, Throwable t ) {
+                                                        Log.d("Failure",call.toString()+" "+t.getMessage());
+                                                    }
+                                                } );
+
+                                                // TODO REFRESH MAP
+                                                serverCall( mMap.getCameraPosition().target );
+                                                break;
+                                            default:
+                                                break;
+                                        }
+                                        dialog.dismiss();
+                                    }
+                                } )
+                                .setNegativeButton( "Nu", new DialogInterface.OnClickListener() {
+                                    @Override
+                                    public void onClick ( DialogInterface dialog, int which ) {
+                                        dialog.dismiss();
+                                    }
+                                } )
+                                .create();
+                        newAlertDialog.show();
                     }
                 } );
                 createPOIDialog.show( fm,"" );
@@ -246,31 +416,96 @@ public class POIActivity extends FragmentActivity implements OnMapReadyCallback,
                     public void onEditButtonClicked () {
                         int markerIndex;
                         FragmentManager fm = getSupportFragmentManager();
-                        EditPOIDialog editPOIDialog = new EditPOIDialog();
+                        final EditPOIDialog editPOIDialog = new EditPOIDialog();
 
                         editPOIDialog.setEditPoiDialogListener( new EditPOIDialog.EditPoiDialogListener() {
                             @Override
                             public void onSaveEdit () {
 
-                                //TODO EDIT STUFF
-                                String message = JsonBuilder.buildJson(
-                                        "buildType",
-                                        "settlement",
-                                        "supSettlement",
-                                        "county",
-                                        0.00,
-                                        0.00,
-                                        "concatenated",
-                                        "newConcatenated",
-                                        "newWno",
-                                        false ,
-                                        "wno",
-                                        false);
+                                AlertDialog newAlertDialog = new AlertDialog.Builder( thisActivity )
+                                        .setTitle( "Salveaza" )
+                                        .setMessage( "Doriti sa salvati modificarile?" )
+                                        .setPositiveButton( "Da", new DialogInterface.OnClickListener() {
+                                            @Override
+                                            public void onClick ( DialogInterface dialog, int which ) {
+
+                                                Spinner selectionSpinner = editPOIDialog.getSpinner();
+                                                Retrofit retrofit = new Retrofit.Builder()
+                                                        .baseUrl( "https://api.tudo.ro:"+TEMP_ID )
+                                                        .addConverterFactory( GsonConverterFactory.create() )
+                                                        .build();
+                                                IAdminMap api = retrofit.create( IAdminMap.class );
+
+                                                switch ( selectionSpinner.getSelectedItemPosition() ){
+                                                    case 0:
+                                                        Log.d("Save","POI");
+                                                        JsonModel jsonModel = new JsonModel(editPOIDialog.getMarkerId(), "poi", "Timişoara", "Timişoara", "Timiş", marker.getPosition().latitude, marker.getPosition().longitude, editPOIDialog.getStreetName(), 1, "", 0, "","",""   );
+                                                        Call<JsonModel> createPoiCall = api.createMarker( jsonModel);
+                                                        createPoiCall.enqueue( new Callback<JsonModel>() {
+                                                            @Override
+                                                            public void onResponse ( Call<JsonModel> call, Response<JsonModel> response ) {
+                                                                Log.d("Response",response.message()+" "+call.toString());
+                                                            }
+
+                                                            @Override
+                                                            public void onFailure ( Call<JsonModel> call, Throwable t ) {
+                                                                Log.d("Failure",call.toString()+" "+t.getMessage());
+                                                            }
+                                                        } );
+                                                        break;
+                                                    case 1:
+                                                        Log.d("Save","Casa");
+                                                        jsonModel = new JsonModel(editPOIDialog.getMarkerId(), "casa", "Timişoara", "Timişoara", "Timiş", marker.getPosition().latitude, marker.getPosition().longitude, editPOIDialog.getStreetName(), 1, "", 0, editPOIDialog.getStreetNumber(),editPOIDialog.getStreetNumber(),""   );
+                                                        createPoiCall = api.createMarker( jsonModel);
+                                                        createPoiCall.enqueue( new Callback<JsonModel>() {
+                                                            @Override
+                                                            public void onResponse ( Call<JsonModel> call, Response<JsonModel> response ) {
+                                                                Log.d("Response",response.message()+" "+call.toString());
+                                                            }
+
+                                                            @Override
+                                                            public void onFailure ( Call<JsonModel> call, Throwable t ) {
+                                                                Log.d("Failure",call.toString()+" "+t.getMessage());
+                                                            }
+                                                        } );
+                                                        break;
+                                                    case 2:
+                                                        Log.d("Save","Bloc");
+                                                        jsonModel = new JsonModel(editPOIDialog.getMarkerId(), "scara", "Timişoara", "Timişoara", "Timiş", marker.getPosition().latitude, marker.getPosition().longitude, editPOIDialog.getStreetName(), 1, "", 0, editPOIDialog.getStreetNumber(),editPOIDialog.getStreetNumber(), editPOIDialog.getStairway()   );
+                                                        createPoiCall = api.createMarker( jsonModel);
+                                                        createPoiCall.enqueue( new Callback<JsonModel>() {
+                                                            @Override
+                                                            public void onResponse ( Call<JsonModel> call, Response<JsonModel> response ) {
+                                                                Log.d("Response",response.message()+" "+call.toString());
+                                                            }
+
+                                                            @Override
+                                                            public void onFailure ( Call<JsonModel> call, Throwable t ) {
+                                                                Log.d("Failure",call.toString()+" "+t.getMessage());
+                                                            }
+                                                        } );
+                                                        break;
+                                                    default:
+                                                        break;
+                                                }
+                                                dialog.cancel();
+                                            }
+                                        } )
+                                        .setNegativeButton( "Nu", new DialogInterface.OnClickListener() {
+                                            @Override
+                                            public void onClick ( DialogInterface dialog, int which ) {
+                                                dialog.cancel();
+                                            }
+                                        } )
+                                        .create();
+                                newAlertDialog.show();
+
 
                             }
 
                             @Override
-                            public void onChangePos () {
+                            public void onChangePos (EditPOIDialog editPOIDialog1) {
+                                tmpEditPOIDialog = editPOIDialog1;
                                 editingMarker=marker;
                                 isChangingPosition=true;
                                 changePositionButton.setVisibility( View.VISIBLE );
@@ -279,67 +514,97 @@ public class POIActivity extends FragmentActivity implements OnMapReadyCallback,
 
                         if(addressMarkerList.contains( marker )){
                             markerIndex = addressMarkerList.indexOf( marker );
-
+                            editPOIDialog.setMarkerId( mAdminMapModel.getData().getAddresses().get( markerIndex ).getId() );
                             editPOIDialog.setStreetName( mAdminMapModel.getData().getAddresses().get( markerIndex ).getName() );
                             editPOIDialog.setStreetNumber( mAdminMapModel.getData().getAddresses().get( markerIndex ).getNo() );
                             editPOIDialog.setStairway( mAdminMapModel.getData().getAddresses().get( markerIndex ).getSc() );
-                            editPOIDialog.setPOI( false );
                             editPOIDialog.show( fm, "" );
                         }
                         else{
                             markerIndex = poiMarkerList.indexOf( marker );
-
+                            editPOIDialog.setMarkerId( mAdminMapModel.getData().getPois().get( markerIndex ).getId() );
                             editPOIDialog.setStreetName( mAdminMapModel.getData().getPois().get( markerIndex ).getName() );
-                            editPOIDialog.setPOI( true );
                             editPOIDialog.show( fm, "" );
                         }
                     }
                     @Override
                     public void onDeleteButtonClicked () {
-                        if(addressMarkerList.contains( marker )){
-                            int markerIndex = addressMarkerList.indexOf( marker );
-                            mAdminMapModel.getData().getAddresses().remove( markerIndex );
-                            addressMarkerList.remove( marker );
+                        AlertDialog newAlertDialog = new AlertDialog.Builder( thisActivity )
+                                .setTitle( "Salveaza" )
+                                .setMessage( "Doriti sa stergeti punctul?" )
+                                .setPositiveButton( "Da", new DialogInterface.OnClickListener() {
+                                    @Override
+                                    public void onClick ( DialogInterface dialog, int which ) {
 
-                            //TODO CALL DELETION
-                            String message = JsonBuilder.buildJson(
-                                    "buildType",
-                                    "settlement",
-                                    "supSettlement",
-                                    "county",
-                                    0.00,
-                                    0.00,
-                                    "concatenated",
-                                    "newConcatenated",
-                                    "newWno",
-                                    false ,
-                                    "wno",
-                                    false);
+                                        if(addressMarkerList.contains( marker )){
 
-                            marker.remove();
-                        }
-                        else{
-                            int markerIndex = poiMarkerList.indexOf( marker );
-                            mAdminMapModel.getData().getPois().remove( markerIndex );
-                            poiMarkerList.remove( marker );
+                                            int markerIndex = addressMarkerList.indexOf( marker );
+                                            long markerId = mAdminMapModel.getData().getAddresses().get( markerIndex ).getId();
+                                            mAdminMapModel.getData().getAddresses().remove( markerIndex );
+                                            addressMarkerList.remove( marker );
 
-                            //TODO CALL DELETION
-                            String message = JsonBuilder.buildJson(
-                                    "buildType",
-                                    "settlement",
-                                    "supSettlement",
-                                    "county",
-                                    0.00,
-                                    0.00,
-                                    "concatenated",
-                                    "newConcatenated",
-                                    "newWno",
-                                    false ,
-                                    "wno",
-                                    false);
+                                            //TODO CALL DELETION
 
-                            marker.remove();
-                        }
+                                            Retrofit retrofit = new Retrofit.Builder()
+                                                    .baseUrl( "https://api.tudo.ro:"+TEMP_ID )
+                                                    .addConverterFactory( GsonConverterFactory.create() )
+                                                    .build();
+                                            IAdminMap api = retrofit.create( IAdminMap.class );
+                                            JsonModel jsonModel = new JsonModel(markerId, "poi", "Timişoara", "Timişoara", "Timiş", marker.getPosition().latitude, marker.getPosition().longitude,"", 0, "", 1, "","",""   );
+                                            Call<JsonModel> createPoiCall = api.createMarker( jsonModel);
+                                            createPoiCall.enqueue( new Callback<JsonModel>() {
+                                                @Override
+                                                public void onResponse ( Call<JsonModel> call, Response<JsonModel> response ) {
+                                                    Log.d("Response",response.message()+" "+call.toString());
+                                                }
+
+                                                @Override
+                                                public void onFailure ( Call<JsonModel> call, Throwable t ) {
+                                                    Log.d("Failure",call.toString()+" "+t.getMessage());
+                                                }
+                                            } );
+                                            marker.remove();
+                                        }
+                                        else{
+                                            int markerIndex = poiMarkerList.indexOf( marker );
+                                            long markerId = mAdminMapModel.getData().getPois().get( markerIndex ).getId();
+                                            mAdminMapModel.getData().getPois().remove( markerIndex );
+                                            poiMarkerList.remove( marker );
+
+                                            //TODO CALL DELETION
+                                            Retrofit retrofit = new Retrofit.Builder()
+                                                    .baseUrl( "https://api.tudo.ro:"+TEMP_ID )
+                                                    .addConverterFactory( GsonConverterFactory.create() )
+                                                    .build();
+                                            IAdminMap api = retrofit.create( IAdminMap.class );
+                                            JsonModel jsonModel = new JsonModel(markerId, "poi", "Timişoara", "Timişoara", "Timiş", marker.getPosition().latitude, marker.getPosition().longitude,"", 0, "", 1, "","",""   );
+                                            Call<JsonModel> createPoiCall = api.createMarker( jsonModel);
+                                            createPoiCall.enqueue( new Callback<JsonModel>() {
+                                                @Override
+                                                public void onResponse ( Call<JsonModel> call, Response<JsonModel> response ) {
+                                                    Log.d("Response",response.message()+" "+call.toString());
+                                                }
+
+                                                @Override
+                                                public void onFailure ( Call<JsonModel> call, Throwable t ) {
+                                                    Log.d("Failure",call.toString()+" "+t.getMessage());
+                                                }
+                                            } );
+
+                                            marker.remove();
+                                        }
+                                        dialog.dismiss();
+                                    }
+                                })
+                                .setNegativeButton( "Nu", new DialogInterface.OnClickListener() {
+                                    @Override
+                                    public void onClick ( DialogInterface dialog, int which ) {
+                                        dialog.dismiss();
+                                    }
+                                } )
+                                .create();
+                        newAlertDialog.show();
+
                     }
                 } );
                 poiDialog.setTitleString( marker.getTitle() );
@@ -380,10 +645,11 @@ public class POIActivity extends FragmentActivity implements OnMapReadyCallback,
                 .build();
         IAdminMap api = retrofit.create( IAdminMap.class );
 
-        Call<AdminMapModel> adminMapModelCall = api.callVersion( position.longitude, position.latitude );
+        Call<AdminMapModel> adminMapModelCall = api.getMapData( position.longitude, position.latitude );
         adminMapModelCall.enqueue( new Callback<AdminMapModel>() {
             @Override
             public void onResponse ( Call<AdminMapModel> call, Response<AdminMapModel> response ) {
+                Log.d("Call",call.request().url().toString() );
                 mAdminMapModel = response.body();
                 mapClear();
                 mapDraw();

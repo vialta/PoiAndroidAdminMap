@@ -8,6 +8,7 @@ import java.util.Map;
  */
 public class Address {
 
+    private Long _id;
     private String name;
     private Double lat;
     private Double lng;
@@ -132,4 +133,11 @@ public class Address {
         this.additionalProperties.put(name, value);
     }
 
+    public Long getId () {
+        return _id;
+    }
+
+    public void setId ( Long id ) {
+        this._id = id;
+    }
 }

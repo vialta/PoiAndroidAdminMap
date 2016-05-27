@@ -7,6 +7,7 @@ import java.util.Map;
  */
 public class Poi {
 
+    private Long _id;
     private String name;
     private Double dist;
     private Double lat;
@@ -47,6 +48,14 @@ public class Poi {
      */
     public void setDist(Double dist) {
         this.dist = dist;
+    }
+
+    public Long getId() {
+        return _id;
+    }
+
+    public void setId(Long Id) {
+        this._id = Id;
     }
 
     /**

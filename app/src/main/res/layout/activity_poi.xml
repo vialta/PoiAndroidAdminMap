@@ -18,7 +18,8 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="horizontal"
-    android:background="#eeeeee">
+    android:background="#eeeeee"
+    android:weightSum="1">
 
     <Switch
         android:textOn="Normal"
@@ -28,15 +29,39 @@
         android:id="@+id/switch_map_type"
         />
 
-    <EditText
+    <qualteh.com.androidadminmap.DelayAutoCompleteTextView
         android:id="@+id/edit_text_location_search"
-        android:gravity="center"
         android:layout_width="wrap_content"
-        android:layout_height="wrap_content"/>
+        android:layout_height="wrap_content"
+        android:layout_weight="0.80"
+        android:imeOptions="flagNoExtractUi|actionSearch"
+        android:inputType="textCapSentences"
+        android:textColor="@color/header_text_color"
+        android:background="@color/white"
+        android:hint="@string/map_geo_search_input_hint"
+        android:layout_gravity="center_vertical"
+        android:layout_marginEnd="35dp"
+        android:layout_marginRight="35dp"
+        android:layout_marginTop="4dp"
+        android:layout_marginBottom="4dp"
+        android:padding="10dp"
+        android:dropDownWidth="fill_parent"
+        />
+
+    <ImageView
+        android:id="@+id/geo_autocomplete_clear"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:contentDescription="@string/map_list_header_txt"
+        android:layout_gravity="center_vertical|end"
+        android:visibility="gone"
+        android:layout_marginEnd="12dp"
+        android:layout_marginRight="12dp"
+        />
 
     <Button
         android:id="@+id/button_map_search"
-        android:text="S"
+        android:text="Search"
 
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"/>
